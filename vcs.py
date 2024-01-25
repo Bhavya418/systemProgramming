@@ -71,6 +71,9 @@ def main():
         file = sys.argv[2]
         vcs.add(file)
 
+    elif(command == 'status'):
+        vcs.status()    
+
     elif(command == 'help'):
         help()
     
@@ -155,7 +158,32 @@ class VersionControlSystem:
 
         json.dump(data1,f1)
         json.dump(data2,f2)
-            
+    
+    def status(self):
+        untracked_files=set()
+        f1 = open(self.index_file,'r')
+        data = json.load(f1)
+        
+        
+        for file in os.listdir():
+            if(os.path.isdir(file)):
+                continue
+            if(file =='.bhavu'):
+                continue
+            untracked_files.add(file)
+
+        untrackedFiles = set()
+        for file in untracked_files:
+            hash = hash_file(file)
+            if(data[file]):
+                if data[file] != hash:
+                    untrackedFiles.add(file)
+            else:
+                untrackedFiles.add(file)
+        for file in untrackedFiles:
+            print(f"modified:   {file}")
+        
+
 
 
         
