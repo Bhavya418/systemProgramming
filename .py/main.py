@@ -1,6 +1,7 @@
 import os
 import shutil
 
+
 current_path = input("Enter the path that you want to organize:")
 os.chdir(current_path)
 
