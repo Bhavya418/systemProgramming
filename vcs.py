@@ -86,8 +86,9 @@ def main():
             sys.exit(1)
         message_index = sys.argv.index('-m')+1
         message = sys.argv[message_index]
-        vcs.commit(message)
-        print("Committed successfully")
+        user = vcs.get_current_user()
+        vcs.commit(message,user)
+        
         
 
     elif(command == 'help'):
@@ -116,6 +117,16 @@ class VersionControlSystem:
              
             return True   
         return False
+
+    def get_current_user(self):
+        with open(self.user_file,'r') as current_user:
+            user = current_user.read()
+        user =user.strip().split()[2:]
+        user_name=""
+        for value in user: 
+            user_name = user_name +" " + value
+        return user_name
+
     def create_branch(self,branch_name):
         branch_path_name = os.path.join(self.branch_path,branch_name)
 
@@ -255,11 +266,67 @@ class VersionControlSystem:
         for file in untrackedFiles:
             print(f"{untrackedFiles[file]}: {file}")
 
-    def commit(self,message):
-            print(message)
-        
+    def dump_data(self,commit_data):
+        json_data = json.dumps(commit_data)
+        return json_data
+    
+    def get_object_hash(self,commit_data):
+        return hashlib.sha1(commit_data.encode('utf-8')).hexdigest()
+    
+    def get_object_path(self,object_hash):
+        return os.path.join(self.object_path,object_hash)
+    
+    def save_object(self,commit_data):
+        object_hash = self.get_object_hash(commit_data)
+        object_path = self.get_object_path(object_hash)
 
+        if not os.path.exists(object_path):
+            with open(object_path,'w') as obj:
+                obj.write(commit_data)
+        return object_hash
+
+
+    def commit(self,message,author):
+        if self.not_init('.'):
+            print("'.bhavu' folder is not initialized...")
+            print("Run 'bhavu init' command to initialize")
+            return
+
+        with open(self.index_file,'r') as index_data:
+                index = json.load(index_data)
+
+        with open(self.add_file,'r') as add_data:
+                added = json.load(add_data)
         
+        if not added :
+            print("No changes to commit")
+            return 
+        
+        timestamp= (datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+
+        commit_data ={
+            "timestamp":timestamp,
+            "message": message,
+            "author": author,
+            "index": index,
+            "added": added,        
+        }
+
+        commit_file = self.dump_data(commit_data)
+        
+        commit_hash = self.save_object(commit_file)      
+
+        with open(self.add_file,'w') as f:
+            json.dump({}, f)
+        
+        #Currently implementing it for the main branch
+        current_branch = "main" 
+        head_path = os.path.join(self.branch_path,current_branch)
+        current_head = os.path.join(head_path,'HEAD')
+        with open(current_head,"a")as head:
+            head.write(commit_hash+"\n")            
+
+        print(f"Commit successfully with <HEAD> hash : {commit_hash}")
 
 
         
