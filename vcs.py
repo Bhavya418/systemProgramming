@@ -172,16 +172,16 @@ class VersionControlSystem:
                 continue
             untracked_files.add(file)
 
-        untrackedFiles = set()
+        untrackedFiles = {}
         for file in untracked_files:
             hash = hash_file(file)
             if(data[file]):
                 if data[file] != hash:
-                    untrackedFiles.add(file)
+                    untrackedFiles[file]='modified'
             else:
-                untrackedFiles.add(file)
+                untrackedFiles[file]='added'
         for file in untrackedFiles:
-            print(f"modified:   {file}")
+            print(f"{untrackedFiles[file]}:   {file}")
         
 
 
