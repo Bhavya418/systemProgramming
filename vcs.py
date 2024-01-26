@@ -64,15 +64,31 @@ def main():
 
     if(command == 'init'):
         vcs.init()
-        print("A new empty bhavu repository created")
+        
 
     elif(command == 'add'):
         
         file = sys.argv[2]
-        vcs.add(file)
+        if(file =='.'):
+            vcs.add_with_subdirs(file)
+            print("Files added successfully")
+        
+        else: 
+            vcs.add(file)
+            print("File added successfully")
 
     elif(command == 'status'):
         vcs.status()    
+
+    elif(command == 'commit'):
+        if "-m" not in sys.argv:
+            print("Error: Please provide a commit message using  flag -m.")
+            sys.exit(1)
+        message_index = sys.argv.index('-m')+1
+        message = sys.argv[message_index]
+        vcs.commit(message)
+        print("Committed successfully")
+        
 
     elif(command == 'help'):
         help()
@@ -89,16 +105,38 @@ class VersionControlSystem:
         self.repo_path = repo_path
         self.object_path = os.path.join('.bhavu','objects')
         self.branch_path = os.path.join('.bhavu','branches')
-        self.main_branch = os.path.join(self.branch_path,'main')
+        
         self.index_file = os.path.join(repo_path,'index.json')
         self.add_file = os.path.join(repo_path,'added.json')
         self.user_file = os.path.join(repo_path,'user.txt')
         
+    def not_init(self,dir_path):
+        files_and_dirs = os.listdir(dir_path)
+        if '.bhavu' not in files_and_dirs:
+             
+            return True   
+        return False
+    def create_branch(self,branch_name):
+        branch_path_name = os.path.join(self.branch_path,branch_name)
+
+        if not os.path.exists(branch_path_name):
+            os.makedirs(branch_path_name)
+
+        #create a file to store the latest commit hash
+        branch_file = os.path.join(branch_path_name,'HEAD')
+        if not os.path.exists(branch_file):
+            with open(branch_file,'w') as w:
+                w.write("")
+
 
     def init(self):
+        if os.path.exists(self.repo_path):
+            print("Reinitialized empty repository")
+            return
 
         if not os.path.exists(self.repo_path):
             os.makedirs(self.repo_path)
+
         
         if not os.path.exists(self.branch_path):
             os.makedirs(self.branch_path)
@@ -107,10 +145,8 @@ class VersionControlSystem:
             os.makedirs(self.object_path)    
     
         #creating the main branch
-
-        if not os.path.exists(self.main_branch):
-            os.makedirs(self.main_branch)
-
+        self.create_branch('main')
+        
         files_to_be_created = [self.index_file,self.add_file]
         
 
@@ -128,15 +164,42 @@ class VersionControlSystem:
             date_time = (datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S") 
             with open(self.user_file, "w") as user_data:
                 user_data.write(f"{date_time} {user_name}")
-
+        print("A new empty bhavu repository created")
     
-    def add(self,file):
+    def add(self,file):   
+
         if not os.path.exists(file):
             print(f"File {file} does not exist.")
         else:
+
             self.add_to_json(file)
-            print("File added successfully")
+            # print("File added successfully")
+
+    def add_with_subdirs(self,dir_path):
+        
+        if(self.not_init('.')):
+            print("'.bhavu' folder is not initialized...")
+            print("Run 'bhavu init' command to initialize")
+            return
+        
+        if not os.path.isdir(dir_path):
+            self.add(dir_path)
+            return 
+        files_and_dirs= [os.path.join(dir_path,file) for file in os.listdir(dir_path)]
+        for file in files_and_dirs:
+            filename = os.path.basename(file)
+            if(filename=='.git'):
+                continue
+            if(filename=='.bhavu'):
+                continue
             
+            if os.path.isdir(file):
+                # print(file)                
+                self.add_with_subdirs(file)
+            else:
+                self.add(file)
+
+
 
     def add_to_json(self,file):
         f1 = open(self.index_file,'r')
@@ -160,6 +223,10 @@ class VersionControlSystem:
         json.dump(data2,f2)
     
     def status(self):
+        if self.not_init('.'):
+            print("'.bhavu' folder is not initialized...")
+            print("Run 'bhavu init' command to initialize")
+            return
         untracked_files=set()
         f1 = open(self.index_file,'r')
         data = json.load(f1)
@@ -175,17 +242,21 @@ class VersionControlSystem:
         untrackedFiles = {}
         for file in untracked_files:
             hash = hash_file(file)
-            if(data[file]):
+            if file in data.keys():
                 if data[file] != hash:
-                    untrackedFiles[file]='modified'
+                    untrackedFiles[file]='Untracked'
+                else:
+                    untrackedFiles[file]='Tracked'
+                    
+
             else:
-                untrackedFiles[file]='added'
-        for file in untrackedFiles:
-            print(f"{untrackedFiles[file]}:   {file}")
+                untrackedFiles[file]='Untracked'
         
+        for file in untrackedFiles:
+            print(f"{untrackedFiles[file]}: {file}")
 
-
-
+    def commit(self,message):
+            print(message)
         
 
         
