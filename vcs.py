@@ -88,8 +88,9 @@ def main():
         message = sys.argv[message_index]
         user = vcs.get_current_user()
         vcs.commit(message,user)
-        
-        
+
+    elif(command == 'rm'):
+        vcs.status()    
 
     elif(command == 'help'):
         help()
@@ -177,14 +178,15 @@ class VersionControlSystem:
                 user_data.write(f"{date_time} {user_name}")
         print("A new empty bhavu repository created")
     
-    def add(self,file):   
+    def add(self,file_path_full,file_path_relative):   
 
-        if not os.path.exists(file):
-            print(f"File {file} does not exist.")
-        else:
-
-            self.add_to_json(file)
-            # print("File added successfully")
+        if not os.path.exists(file_path_full):
+            print(f"File {file_path_relative} does not exist.")
+            return
+        
+        file_path_relative = file_path_relative if file_path_relative else os.path.normpath(
+                file_path_full)
+        self.add_to_json(file_path_relative)
 
     def add_with_subdirs(self,dir_path):
         
@@ -196,22 +198,19 @@ class VersionControlSystem:
         if not os.path.isdir(dir_path):
             self.add(dir_path)
             return 
-        files_and_dirs= [os.path.join(dir_path,file) for file in os.listdir(dir_path)]
-        for file in files_and_dirs:
-            filename = os.path.basename(file)
-            if(filename=='.git'):
-                continue
-            if(filename=='.bhavu'):
-                continue
-            
-            if os.path.isdir(file):
-                # print(file)                
-                self.add_with_subdirs(file)
-            else:
-                self.add(file)
+
+        for root,dirs,files in os.walk(dir_path):
+            dirs[:] = [d for d in dirs if d not in ['.bhavu','_pycache_','.git']]
+            files[:] = [f for f in files if f not in ['vcs.py','.gitignore']]
+            # print(files)
+
+            for file in files:
+                file_path_full = os.path.normpath(os.path.join(root,file))
+                file_path_relative = os.path.normpath(file_path_full)
+                self.add(file_path_full,file_path_relative )
 
 
-
+    
     def add_to_json(self,file):
         f1 = open(self.index_file,'r')
         f2 = open(self.add_file,'r')
@@ -242,29 +241,24 @@ class VersionControlSystem:
         f1 = open(self.index_file,'r')
         data = json.load(f1)
         
-        
-        for file in os.listdir():
-            if(os.path.isdir(file)):
-                continue
-            if(file =='.bhavu'):
-                continue
-            untracked_files.add(file)
+        for root, dirs, files in os.walk(os.getcwd()):
+            dirs[:] = [d for d in dirs if d not in [
+                '.bhavu', '_pycache_', '.git']]
+            # print("dirs: ", dirs)
+            for file in files:
+                file_path = os.path.join(root, file)
+                
+                hash = hash_file(file_path)
+                rel_path = os.path.relpath(file_path, os.getcwd())
 
-        untrackedFiles = {}
-        for file in untracked_files:
-            hash = hash_file(file)
-            if file in data.keys():
-                if data[file] != hash:
-                    untrackedFiles[file]='Untracked'
+                if rel_path in data.keys() and data[rel_path] == hash:
+                    status = 'Tracked'
                 else:
-                    untrackedFiles[file]='Tracked'
-                    
+                    status = 'Untracked'
 
-            else:
-                untrackedFiles[file]='Untracked'
-        
-        for file in untrackedFiles:
-            print(f"{untrackedFiles[file]}: {file}")
+                print(f"{status}: {rel_path}")
+
+       
 
     def dump_data(self,commit_data):
         json_data = json.dumps(commit_data)
