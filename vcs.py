@@ -89,8 +89,8 @@ def main():
         user = vcs.get_current_user()
         vcs.commit(message,user)
 
-    elif(command == 'rm'):
-        vcs.status()    
+    elif(command == 'rmcommit'):
+        vcs.rmcommit()    
 
     elif(command == 'help'):
         help()
@@ -111,6 +111,8 @@ class VersionControlSystem:
         self.index_file = os.path.join(repo_path,'index.json')
         self.add_file = os.path.join(repo_path,'added.json')
         self.user_file = os.path.join(repo_path,'user.txt')
+        self.commit_path = os.path.join(self.object_path,'commit')
+        self.content_path = os.path.join(self.object_path,'content')
         
     def not_init(self,dir_path):
         files_and_dirs = os.listdir(dir_path)
@@ -155,7 +157,10 @@ class VersionControlSystem:
 
         if not os.path.exists(self.object_path):
             os.makedirs(self.object_path)    
-    
+        if not os.path.exists(self.commit_path):
+            os.makedirs(self.commit_path) 
+        if not os.path.exists(self.content_path):
+            os.makedirs(self.content_path)           
         #creating the main branch
         self.create_branch('main')
         
@@ -268,7 +273,7 @@ class VersionControlSystem:
         return hashlib.sha1(commit_data.encode('utf-8')).hexdigest()
     
     def get_object_path(self,object_hash):
-        return os.path.join(self.object_path,object_hash)
+        return os.path.join(self.commit_path,object_hash)
     
     def save_object(self,commit_data):
         object_hash = self.get_object_hash(commit_data)
@@ -322,7 +327,73 @@ class VersionControlSystem:
 
         print(f"Commit successfully with <HEAD> hash : {commit_hash}")
 
+    def get_head_commit(self):
+        current_branch = "main" 
+        head_path = os.path.join(self.branch_path,current_branch)
+        current_head = os.path.join(head_path,'HEAD')
+        with open(current_head,"r")as head:
+            head_commit = head.read()
+        
+        head_commit = head_commit.strip().split("\n")[-1]
+        return head_commit
 
+    def get_second_head_commit(self):
+        current_branch = "main" 
+        head_path = os.path.join(self.branch_path,current_branch)
+        current_head = os.path.join(head_path,'HEAD')
+        with open(current_head,"r")as head:
+            second_head_commit = head.read()
+        
+        second_head_commit = second_head_commit.strip().split("\n")
+        if len(second_head_commit) > 1:
+            second_head_commit = second_head_commit[-2]
+        else:
+            second_head_commit = ""
+        return second_head_commit
+
+    def rmcommit(self):
+        if self.not_init('.'):
+            print("'.bhavu' folder is not initialized...")
+            print("Run 'bhavu init' command to initialize")
+            return
+        #Currently implementing it for the main branch
+
+        head_commit = self.get_head_commit()
+
+        if head_commit == "":
+            print("No commits to remove")
+            return
+
+        second_head_commit = self.get_second_head_commit()
+        
+        if head_commit and second_head_commit =="":
+            head_path = os.path.join(self.branch_path,"main")
+            head_file = os.path.join(head_path,'HEAD')
+            head_commit_file = os.path.join(self.commit_path,head_commit)
+            os.remove(head_commit_file)
+            with open(head_file, "w") as f:
+                f.write("")
+            with open(self.add_file,'w') as f:
+                json.dump({}, f)
+            with open(self.index_file,'w') as f:
+                json.dump({}, f)
+            print("Last commit removed successfully")
+            return
+        else:
+            head_path = os.path.join(self.branch_path,"main")
+            head_file = os.path.join(head_path,'HEAD')
+            #remove last line in head_file 
+
+            with open(head_file, "r") as f:
+                lines = f.readlines()
+                lines = lines[:-1]
+            with open(head_file, "w") as f:
+                f.writelines(lines)            
+
+            head_commit_file = os.path.join(self.commit_path,head_commit)
+            os.remove(head_commit_file)
+            print("Last commit removed successfully")
+            return
         
 
 if __name__ == "__main__": 
