@@ -601,12 +601,21 @@ class VersionControlSystem:
             os.makedirs(destionation_path)
 
         head_commit = self.get_head_commit()
+        if head_commit == "":
+            quit("No commits to push. Commit first to push the files.")
+            return
         head_commit_file = os.path.join(self.commit_path,head_commit)
         commited_files = self.get_commited_files(head_commit_file,'index')
         for file_path,file_hash in commited_files.items():
                 content_file = os.path.join(self.content_path,file_hash)
                 encrpted_data = self.decrypt_data(content_file)
+                file_path_push = os.path.join(destionation_path,file_path)
+                dir_path = os.path.dirname(file_path_push)
+                if not os.path.exists(dir_path):
+                        os.makedirs(dir_path)
+
                 with open(os.path.join(destionation_path,file_path),'w') as f:
+                    
                     f.write(encrpted_data)    
                 
         print("Files pushed successfully")
