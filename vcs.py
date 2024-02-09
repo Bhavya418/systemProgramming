@@ -103,10 +103,36 @@ def main():
     elif(command == 'help'):
         help()
     
-    elif(command == 'test'):
+    elif(command == 'push'):
         file = sys.argv[2]
         foldername =sys.argv[3]
-        vcs.test_function(file,foldername)
+        vcs.push(file,foldername)
+
+    elif(command == 'user'):
+        if(len(sys.argv)<3):
+            print("Error: Please provide a command.")
+            sys.exit(1)
+        sub_command = sys.argv[2]
+        if(sub_command == 'show'):
+            print(vcs.get_current_user())
+        elif(sub_command == 'set'):
+            user_name = sys.argv[3]
+            vcs.change_user(user_name)
+            print("User changed successfully")
+        
+        else:
+            help()
+    
+    elif(command == 'checkout'):
+        commit_hash = sys.argv[2]
+        vcs.checkout(commit_hash)
+
+    elif(command == 'log'):
+        vcs.log()
+    elif(command == 'test'):
+        
+        vcs.test_function()
+
 
     else:
         help()
@@ -141,7 +167,13 @@ class VersionControlSystem:
         user_name=""
         for value in user: 
             user_name = user_name +" " + value
+        
         return user_name
+
+    def change_user(self,user_name):
+        date_time = (datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S") 
+        with open(self.user_file, "w") as user_data:
+            user_data.write(f"{date_time} {user_name}")
 
     def create_branch(self,branch_name):
         branch_path_name = os.path.join(self.branch_path,branch_name)
@@ -256,7 +288,7 @@ class VersionControlSystem:
                 file_path_relative = os.path.normpath(file_path_full)
                 self.add(file_path_full,file_path_relative )
 
-
+    
     
     def add_to_json(self,file):
         f1 = open(self.index_file,'r')
@@ -515,7 +547,51 @@ class VersionControlSystem:
 
     def test_function(self,destionation_path,folder_name):
         print("Test function")
-        vcs.push(destionation_path,folder_name)
+    
+    def checkout(self,commit_hash):
+        # print(commit_hash)
+        if self.not_init('.'):
+            print("'.bhavu' folder is not initialized...")
+            print("Run 'bhavu init' command to initialize")
+            return
+
+        head_commit = self.get_head_commit()
+        
+        if head_commit == commit_hash:
+            print("Already at the commit")
+            return    
+        
+        HEAD_path = os.path.join(self.branch_path,"main")
+        head_file = os.path.join(HEAD_path,'HEAD')
+        with open(head_file,'r') as f:
+            head_commit = f.read()
+
+        head_commit = head_commit.strip().split("\n")
+        if commit_hash not in head_commit:
+            print("Commit hash not found")
+            return
+        #try to make the commit_index as the head commit but will do it afterwards
+        # commit_index = head_commit.index(commit_hash)
+
+        head_commit_file = os.path.join(self.commit_path,commit_hash)
+        
+        commited_files = self.get_commited_files(head_commit_file,"index")
+        
+        self.clear_directory(os.getcwd())   
+
+        for file_path,file_hash in commited_files.items(): 
+            file_path = os.path.join(os.getcwd(),file_path)
+            dir_name= os.path.dirname(file_path)
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name)
+        for file_path,file_hash in commited_files.items():
+            content_file = os.path.join(self.content_path,file_hash)
+            decrpyted_data = self.decrypt_data(content_file)
+            with open(file_path,'w') as f:
+                f.write(decrpyted_data)
+        with open(self.index_file,'w') as f:
+            json.dump(commited_files, f)
+        print("Checkout successfully")
 
     def rmcommit(self):
         if self.not_init('.'):
@@ -577,12 +653,22 @@ class VersionControlSystem:
             second_head_commit_file = os.path.join(self.commit_path,second_head_commit)
 
             commited_files = self.get_commited_files(second_head_commit_file,"index")
+
+            for file_path,file_hash in commited_files.items():
+                file_path = os.path.join(os.getcwd(),file_path)
+                dir_name= os.path.dirname(file_path)
+                if not os.path.exists(dir_name):
+                    os.makedirs(dir_name)   
+
+
+
             for file_path,file_hash in commited_files.items():
                 content_file = os.path.join(self.content_path,file_hash)
                 encrpted_data = self.decrypt_data(content_file)
                 with open(file_path,'w') as f:
                     f.write(encrpted_data)
-
+            with open(self.index_file,'w') as f:
+                json.dump(commited_files, f)
 
             print("Last commit removed successfully")
             return
@@ -619,6 +705,44 @@ class VersionControlSystem:
                     f.write(encrpted_data)    
                 
         print("Files pushed successfully")
+    
+
+    def log(self):
+        if self.not_init('.'):
+            print("'.bhavu' folder is not initialized...")
+            print("Run 'bhavu init' command to initialize")
+            return
+
+        head_path = os.path.join(self.branch_path,"main")
+        head_path = os.path.join(head_path,'HEAD')
+        with open(head_path,"r") as head:
+            head_commit = head.read()
+        head_commit = head_commit.strip().split("\n")
+
+        if head_commit == "":
+            print("No commits to show")
+            return
+
+        for commit in head_commit:
+            commit_file = os.path.join(self.commit_path,commit)
+            data = self.decrypt_data(commit_file)
+            data = json.loads(data)
+            print(f"commit: {commit}")
+            print(f"Author: {data['author']}")
+            print(f"Date: {data['timestamp']}")
+            print(f"Message: {data['message']}")
+            print()
+            print("Added/Modifies files:")
+            print("----------------------")
+            for file in data['added']:
+                print(file,"\n")
+            print("All files:")
+            print("----------------------")
+            for file in data['index']:
+                print(file,"\n")
+
+        print("Log successfully shown")
+    
         
 
 if __name__ == "__main__": 
