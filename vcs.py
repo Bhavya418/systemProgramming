@@ -104,7 +104,9 @@ def main():
         help()
     
     elif(command == 'test'):
-        vcs.test_function()
+        file = sys.argv[2]
+        foldername =sys.argv[3]
+        vcs.test_function(file,foldername)
 
     else:
         help()
@@ -511,15 +513,9 @@ class VersionControlSystem:
         added_files = data[type]
         return added_files
 
-    def test_function(self):
-        head_commit = self.get_head_commit()
-        head_commit_file = os.path.join(self.commit_path,head_commit)
-        commited_files = self.get_commited_files(head_commit_file)
-        for file_path,file_hash in commited_files.items():
-                content_file = os.path.join(self.content_path,file_hash)
-                os.remove(content_file)
-
-        os.remove(head_commit_file)
+    def test_function(self,destionation_path,folder_name):
+        print("Test function")
+        vcs.push(destionation_path,folder_name)
 
     def rmcommit(self):
         if self.not_init('.'):
@@ -591,7 +587,29 @@ class VersionControlSystem:
             print("Last commit removed successfully")
             return
 
-            
+    def push(self,destionation_path,folder_name):
+        if self.not_init('.'):
+            print("'.bhavu' folder is not initialized...")
+            print("Run 'bhavu init' command to initialize")
+            return
+        
+        if not os.path.exists(destionation_path):
+            os.makedirs(destionation_path)
+        # destionation_path = os.path.join(destionation_path,"pushed_files")
+        destionation_path = os.path.join(destionation_path,folder_name)
+        if not os.path.exists(destionation_path):
+            os.makedirs(destionation_path)
+
+        head_commit = self.get_head_commit()
+        head_commit_file = os.path.join(self.commit_path,head_commit)
+        commited_files = self.get_commited_files(head_commit_file,'index')
+        for file_path,file_hash in commited_files.items():
+                content_file = os.path.join(self.content_path,file_hash)
+                encrpted_data = self.decrypt_data(content_file)
+                with open(os.path.join(destionation_path,file_path),'w') as f:
+                    f.write(encrpted_data)    
+                
+        print("Files pushed successfully")
         
 
 if __name__ == "__main__": 
