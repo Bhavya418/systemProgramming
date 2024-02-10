@@ -6,347 +6,210 @@ import json
 import datetime 
 import base64
 
-def help():
-        print("Bhavu - A Version Control System")
-        print("---------------------------------")
-        print("Usage:")
-        print("  bhavu init                - Initialize a new bhavu repository")
-        print("  bhavu add <file>          - Add a file to the index")
-        print("  bhavu commit -m <message> - Commit changes with a message")
-        print("  bhavu rmadd <file>        - remove a file from the index")
-        print("  bhavu rmcommit            - remove last commit")
-        print("  bhavu log                 - Display commit log")
-        print("  bhavu checkout <commit>   - Checkout a specific commit")
-        print("  bhavu help                - to see this usage help")
-        print("  bhavu status              - to see status")
-        print("  bhavu user show           - to see present user")
-        print("  bhavu user set <username> - to change user")
-        print("  bhavu push <path>         - to push your file to another folder")
-        print("---------------------------------")
-        print("Created by - Bhavya Shah")
-        print("---------------------------------")
 
-def md5_update_from_dir(directory, hash):
-    assert Path(directory).is_dir()
-    for path in sorted(Path(directory).iterdir(), key=lambda p: str(p).lower()):
-        hash.update(path.name.encode())
-        if path.is_file():
-            with open(path, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    hash.update(chunk)
-        elif path.is_dir():
-            hash = md5_update_from_dir(path, hash)
-    return hash
-
-
-def md5_dir(directory):
-    return md5_update_from_dir(directory, hashlib.md5()).hexdigest()            
-
-
-def hash_file(filename):
-    h = hashlib.md5()
-    with open(filename,'rb') as file:
-        #loop till the end of the file
-        chunk =0
-        while chunk != b'':
-            #read only 1024 bytes at a time
-            chunk = file.read(1024)
-            h.update(chunk)
-    return h.hexdigest()        
-
-
-def main():
-
-    if(len(sys.argv)<2):
-        help()
-        sys.exit(1)
-
-    command = sys.argv[1]
-
-    if(command == 'init'):
-        vcs.init()
-        
-
-    elif(command == 'add'):
-        
-        file = sys.argv[2]
-        
-        vcs.add_with_subdirs(file)
-        print("Files added successfully")
-        
-        
-
-    elif(command == 'rmadd'):
-        
-        file = sys.argv[2]
-        
-        vcs.rmadd_with_subdirs(file)
-        # print("File removed from added")
-        
-        
-
-    elif(command == 'status'):
-        vcs.status()    
-
-    elif(command == 'commit'):
-        if "-m" not in sys.argv:
-            print("Error: Please provide a commit message using  flag -m.")
-            sys.exit(1)
-        message_index = sys.argv.index('-m')+1
-        message = sys.argv[message_index]
-        user = vcs.get_current_user()
-        vcs.commit(message,user)
-
-    elif(command == 'rmcommit'):
-        vcs.rmcommit()    
-
-    elif(command == 'help'):
-        help()
-    
-    elif(command == 'push'):
-        file = sys.argv[2]
-        foldername =sys.argv[3]
-        vcs.push(file,foldername)
-
-    elif(command == 'user'):
-        if(len(sys.argv)<3):
-            print("Error: Please provide a command.")
-            sys.exit(1)
-        sub_command = sys.argv[2]
-        if(sub_command == 'show'):
-            print(vcs.get_current_user())
-        elif(sub_command == 'set'):
-            user_name = sys.argv[3]
-            vcs.change_user(user_name)
-            print("User changed successfully")
-        
-        else:
-            help()
-    
-    elif(command == 'checkout'):
-        commit_hash = sys.argv[2]
-        vcs.checkout(commit_hash)
-
-    elif(command == 'log'):
-        vcs.log()
-    elif(command == 'test'):
-        
-        vcs.test_function()
-
-
-    else:
-        help()
-
-
+#importing the other files and classes 
+from hash import HashCalculator
+from file_handler import FileHandler
+from utility import Utility
+from help import help
+from file_functions import File_functions
 
 class VersionControlSystem:
 
     def __init__(self,repo_path=".bhavu"):
+        try:
+            #initializing the paths
+            self.repo_path = repo_path
+            self.object_path = os.path.join(repo_path,'objects')
+            self.branch_path = os.path.join(repo_path,'branches')
+            self.index_file = os.path.join(repo_path,'index.json')
+            self.add_file = os.path.join(repo_path,'added.json')
+            self.user_file = os.path.join(repo_path,'user.txt')
+            self.commit_path = os.path.join(self.object_path,'commit')
+            self.content_path = os.path.join(self.object_path,'content')
+            #class objects
+            self.hash = HashCalculator()
+            self.file_handler = FileHandler()
+            self.file_function = File_functions()
+            self.utility = Utility()
+        except Exception as e:
+            print(f"An error occurred while initializing the VersionControlSystem: {str(e)}")
 
-        self.repo_path = repo_path
-        self.object_path = os.path.join('.bhavu','objects')
-        self.branch_path = os.path.join('.bhavu','branches')
-        
-        self.index_file = os.path.join(repo_path,'index.json')
-        self.add_file = os.path.join(repo_path,'added.json')
-        self.user_file = os.path.join(repo_path,'user.txt')
-        self.commit_path = os.path.join(self.object_path,'commit')
-        self.content_path = os.path.join(self.object_path,'content')
-        
-    def not_init(self,dir_path):
-        files_and_dirs = os.listdir(dir_path)
-        if '.bhavu' not in files_and_dirs:
-             
-            return True   
-        return False
-
+    # get the current user    
     def get_current_user(self):
-        with open(self.user_file,'r') as current_user:
-            user = current_user.read()
-        user =user.strip().split()[2:]
-        user_name=""
-        for value in user: 
-            user_name = user_name +" " + value
-        
-        return user_name
+        try:
+            user = self.file_handler.read_file(self.user_file)
+            user = user.strip().split()[2:]
+            user_name = ""
+            for value in user: 
+                user_name = user_name + " " + value
+            return user_name
+        except Exception as e:
+            print(f"An error occurred while getting the current user: {str(e)}")
+            return None
 
-    def change_user(self,user_name):
-        date_time = (datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S") 
-        with open(self.user_file, "w") as user_data:
-            user_data.write(f"{date_time} {user_name}")
+    # change the current user
+    def change_user(self, user_name):
+        try:
+            date_time = self.Utility.get_date_time()
+            self.file_handler.write_file(self.user_file, f"{date_time} {user_name}")
+        except Exception as e:
+            print(f"An error occurred while changing the user: {str(e)}")
 
-    def create_branch(self,branch_name):
-        branch_path_name = os.path.join(self.branch_path,branch_name)
+    #create a new branch    
+    def create_branch(self, branch_name="main"):
+        try:
+            branch_path_name = os.path.join(self.branch_path, branch_name)
 
-        if not os.path.exists(branch_path_name):
-            os.makedirs(branch_path_name)
+            if not self.file_function.check_file_exists(branch_path_name):
+                os.makedirs(branch_path_name)
 
-        #create a file to store the latest commit hash
-        branch_file = os.path.join(branch_path_name,'HEAD')
-        if not os.path.exists(branch_file):
-            with open(branch_file,'w') as w:
-                w.write("")
+            # create a file to store the latest commit hash
+            branch_file = os.path.join(branch_path_name, 'HEAD')
+            if not self.file_function.check_file_exists(branch_file):
+                self.file_handler.write_file(branch_file, "")
+        except Exception as e:
+            print(f"An error occurred while creating the branch: {str(e)}")
 
 
     def init(self):
-        if os.path.exists(self.repo_path):
-            print("Reinitialized empty repository")
-            return
+        try:
+            if self.file_function.check_file_exists(self.repo_path):
+                print(f"Reinitialized empty repository at : {os.getcwd()}")
+                return
 
-        if not os.path.exists(self.repo_path):
-            os.makedirs(self.repo_path)
+            if not self.file_function.check_file_exists(self.repo_path):
+                os.makedirs(self.repo_path)
 
-        
-        if not os.path.exists(self.branch_path):
-            os.makedirs(self.branch_path)
+            
+            if not self.file_function.check_file_exists(self.branch_path):
+                os.makedirs(self.branch_path)
 
-        if not os.path.exists(self.object_path):
-            os.makedirs(self.object_path)    
-        if not os.path.exists(self.commit_path):
-            os.makedirs(self.commit_path) 
-        if not os.path.exists(self.content_path):
-            os.makedirs(self.content_path)           
-        #creating the main branch
-        self.create_branch('main')
-        
-        files_to_be_created = [self.index_file,self.add_file]
-        
+            if not self.file_function.check_file_exists(self.object_path):
+                os.makedirs(self.object_path)    
+            if not self.file_function.check_file_exists(self.commit_path):
+                os.makedirs(self.commit_path) 
+            if not self.file_function.check_file_exists(self.content_path):
+                os.makedirs(self.content_path)           
+            #creating the main branch
+            self.create_branch('main')
+            
+            files_to_be_created = [self.index_file,self.add_file]
+            
+            for file in files_to_be_created:
+                if not self.file_function.check_file_exists(file):
+                    self.utility.dump_json({}, file)
+                    
+            if not self.file_function.check_file_exists(self.user_file):
+                    
+                user_name = input("Enter your username: ")
+                if user_name == "":
+                    user_name = "Unknown"
+                date_time = self.utility.get_date_time()
+                self.file_handler.write_file(self.user_file, f"{date_time} {user_name}") 
 
-        for file in files_to_be_created:
-            if not os.path.exists(file):
-                with open(file, "w") as index:
-                    json.dump({}, index)   
+            print(f"A new empty bhavu repository created successfully at :{os.getcwd()}")
 
-
-        if not os.path.exists(self.user_file):
+        except Exception as e:
+            print(f"An error occurred while initializing the repository: {str(e)}")
+    
+    
+    
+    def add_to_json(self, file):
+        try:
+            data1 = self.utility.read_json(self.index_file)
+            data2 = self.utility.read_json(self.add_file)
+                    
+            if self.file_function.check_dir(file):
+                hash = self.hash.md5_dir(file)
+            else:
+                hash = self.hash.hash_file(file)
                 
-            user_name = input("Enter your username: ")
-            if user_name == "":
-                user_name = "Unknown"
-            date_time = (datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S") 
-            with open(self.user_file, "w") as user_data:
-                user_data.write(f"{date_time} {user_name}")
-        print("A new empty bhavu repository created")
-    
-    def add(self,file_path_full,file_path_relative):   
-
-        if not os.path.exists(file_path_full):
-            print(f"File {file_path_relative} does not exist.")
-            return
+            data1[file] = hash
+            data2[file]=hash
+            self.utility.dump_json(data1, self.index_file)
+            self.utility.dump_json(data2, self.add_file)
         
-        file_path_relative = file_path_relative if file_path_relative else os.path.normpath(
-                file_path_full)
-        self.add_to_json(file_path_relative)
+        except Exception as e:
+            print(f"An error occurred while adding the file to JSON: {str(e)}")
 
-    def index_file_update(self):
-        with open(self.index_file,'r') as f1:
-            data1 = json.load(f1)
+    def add(self, file_path_full, file_path_relative):   
+        try:
+            if not self.file_function.check_file_exists(file_path_full):
+                print(f"File {file_path_relative} does not exist.")
+                return
+            
+            file_path_relative = file_path_relative if file_path_relative else os.path.normpath(file_path_full)
+            self.add_to_json(file_path_relative)
         
-        delKeys  = []
-        for key in data1:
-            if not os.path.exists(key):
-                delKeys.append(key)
-        for key in delKeys:
-            del data1[key]
-        with open(self.index_file,'w') as f1:
-            json.dump(data1,f1)   
-
-    def added_file_update(self):
-        with open(self.add_file,'r') as f1:
-            data1 = json.load(f1)
-        
-        delKeys  = []
-        for key in data1:
-            if not os.path.exists(key):
-                delKeys.append(key)
-        for key in delKeys:
-            del data1[key]
-        with open(self.add_file,'w') as f1:
-            json.dump(data1,f1)   
-
-
-    def add_with_subdirs(self,dir_path):
-        
-        if(self.not_init('.')):
-            print("'.bhavu' folder is not initialized...")
-            print("Run 'bhavu init' command to initialize")
-            return
-        
-        if not os.path.isdir(dir_path):
-            self.add(dir_path,dir_path)
-            return 
-
-        self.index_file_update()
-        self.added_file_update()
-        for root,dirs,files in os.walk(dir_path):
-            dirs[:] = [d for d in dirs if d not in ['.bhavu','_pycache_','.git']]
-            files[:] = [f for f in files if f not in ['vcs.py','.gitignore']]
-            # print(files)
-
-            for file in files:
-                file_path_full = os.path.normpath(os.path.join(root,file))
-                file_path_relative = os.path.normpath(file_path_full)
-                self.add(file_path_full,file_path_relative )
+        except Exception as e:
+            print(f"An error occurred while adding the file: {str(e)}")
 
     
-    
-    def add_to_json(self,file):
-        f1 = open(self.index_file,'r')
-        f2 = open(self.add_file,'r')
-            
-        data1 = json.load(f1)
-        data2 = json.load(f2)
-                
-        if(os.path.isdir(file)):
-            hash = md5_dir(file)
-        else:
-            hash = hash_file(file)
-            
-        data1[file] = hash
-        data2[file] = hash
-            
-        f1 = open(self.index_file,'w')
-        f2 = open(self.add_file,'w')
+    def add_with_subdirs(self, dir_path):
+        try:
+            if self.utility.not_init('.'):
+                print("'.bhavu' folder is not initialized...")
+                print("Run 'bhavu init' command to initialize")
+                return
 
-        json.dump(data1,f1)
-        json.dump(data2,f2)
-    
-    def rmadd_to_json(self,file):
-        f1 = open(self.index_file,'r')
-        f2 = open(self.add_file,'r')
-            
-        data1 = json.load(f1)
-        data2 = json.load(f2)
-                
-        if file in data1:
-            del data1[file]
-        if file in data2:
-            del data2[file]
-            
-        f1 = open(self.index_file,'w')
-        f2 = open(self.add_file,'w')
+            if not self.file_function.check_dir(dir_path):
+                self.add(dir_path, dir_path)
+                return
 
-        json.dump(data1,f1)
-        json.dump(data2,f2)
+            self.file_function.file_update(self.index_file)
+            self.file_function.file_update(self.add_file)
+
+            for root, dirs, files in os.walk(dir_path):
+                dirs[:] = [d for d in dirs if d not in ['.bhavu', '_pycache_', '.git']]
+                files[:] = [f for f in files if f not in ['vcs.py', '.gitignore']]
+
+                for file in files:
+                    file_path_full = os.path.normpath(os.path.join(root, file))
+                    file_path_relative = os.path.normpath(file_path_full)
+                    self.add(file_path_full, file_path_relative)
+        
+        except Exception as e:
+            print(f"An error occurred while adding files with subdirectories: {str(e)}")
+
+        
+    def rmadd_to_json(self, file):
+        try:
+            data1 = self.utility.read_json(self.index_file)
+            data2 = self.utility.read_json(self.add_file)
+            
+            if file in data1:
+                del data1[file]
+            if file in data2:
+                del data2[file]
+            
+            self.utility.dump_json(data1, self.index_file)
+            self.utility.dump_json(data2, self.add_file)
+        
+        except Exception as e:
+            print(f"An error occurred while removing the file from JSON: {str(e)}")
 
     def rmadd(self,file_path_full,file_path_relative):
-        if not os.path.exists(file_path_full):
-            print(f"File {file_path_relative} is not removed.")
-            return False
-        file_path_relative = file_path_relative if file_path_relative else os.path.normpath(
-                file_path_full)
-        self.rmadd_to_json(file_path_relative)
+        try:
+            if not self.file_function.check_file_exists(file_path_full):
+                print(f"File {file_path_relative} is not added.")
+                return False
+            file_path_relative = file_path_relative if file_path_relative else os.path.normpath(
+                    file_path_full)
+            self.rmadd_to_json(file_path_relative)
+        except Exception as e:
+            print(f"An error occurred while removing the file: {str(e)}")
 
     def rmadd_with_subdirs(self,dir_path):
-        if(self.not_init('.')):
+        if(self.utility.not_init('.')):
             print("'.bhavu' folder is not initialized...")
             print("Run 'bhavu init' command to initialize")
             return
         
-        if not os.path.isdir(dir_path):
+        if not self.file_function.check_dir(dir_path):
             bool = self.rmadd(dir_path,dir_path)
             if(bool == False):
-                print("Add it first to stage it")
+                print("add the file  first to stage it")
             return 
 
         for root,dirs,files in os.walk(dir_path):
@@ -742,7 +605,95 @@ class VersionControlSystem:
                 print(file,"\n")
 
         print("Log successfully shown")
+
+
+def main():
     
+    if(len(sys.argv)<2):
+        help()
+        sys.exit(1)
+
+    command = sys.argv[1]
+
+    if(command == 'init'):
+        if(len(sys.argv) !=2):
+            print("Error: Too many arguments.")
+            print("Usage: bhavu init")
+            sys.exit(1)
+
+        vcs.init()
+        
+
+    elif(command == 'add'):
+        
+        file = sys.argv[2]
+        
+        vcs.add_with_subdirs(file)
+        print("Files added successfully")
+        
+        
+
+    elif(command == 'rmadd'):
+        
+        file = sys.argv[2]
+        
+        vcs.rmadd_with_subdirs(file)
+        # print("File removed from added")
+        
+        
+
+    elif(command == 'status'):
+        vcs.status()    
+
+    elif(command == 'commit'):
+        if "-m" not in sys.argv:
+            print("Error: Please provide a commit message using  flag -m.")
+            sys.exit(1)
+        message_index = sys.argv.index('-m')+1
+        message = sys.argv[message_index]
+        user = vcs.get_current_user()
+        vcs.commit(message,user)
+
+    elif(command == 'rmcommit'):
+        vcs.rmcommit()    
+
+    elif(command == 'help'):
+        help()
+    
+    elif(command == 'push'):
+        file = sys.argv[2]
+        foldername =sys.argv[3]
+        vcs.push(file,foldername)
+
+    elif(command == 'user'):
+        if(len(sys.argv)<3):
+            print("Error: Please provide a command.")
+            sys.exit(1)
+        sub_command = sys.argv[2]
+        if(sub_command == 'show'):
+            print("Author:",vcs.get_current_user())
+        elif(sub_command == 'set'):
+            user_name = sys.argv[3]
+            vcs.change_user(user_name)
+            print(f"Author changed to '{user_name}' successfully")
+        
+        else:
+            help()
+    
+    elif(command == 'checkout'):
+        commit_hash = sys.argv[2]
+        vcs.checkout(commit_hash)
+
+    elif(command == 'log'):
+        vcs.log()
+    elif(command == 'test'):
+        
+        vcs.test_function()
+
+
+    else:
+        help()
+
         
 
 if __name__ == "__main__": 
