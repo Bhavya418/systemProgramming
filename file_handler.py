@@ -22,3 +22,11 @@ class FileHandler:
         except Exception as e:
             print(f"An error occurred: {e}")
             return None
+    
+    def append_file(self, filename,data):
+        try:
+            with open(filename, 'a') as file:
+                file.write(data)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None

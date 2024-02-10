@@ -34,3 +34,20 @@ class Utility:
         except Exception as e:
             print(f"An error occurred: {e}")
             return None
+    
+    def dump_data(self,commit_data):
+        json_data = json.dumps(commit_data)
+        return json_data
+    
+    def get_object_hash(self,commit_data):
+        return hashlib.sha1(commit_data.encode('utf-8')).hexdigest()
+    
+    def get_object_path(self,commit_path,object_hash):
+        return os.path.join(commit_path,object_hash)
+    
+    def encrypt_data(self,commit_data):
+        return base64.b64encode(commit_data.encode()).decode('utf-8')
+    
+    def printLine(self):
+        print("'.bhavu' folder is not initialized...")
+        print("Run 'bhavu init' command to initialize")

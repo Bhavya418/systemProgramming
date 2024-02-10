@@ -149,8 +149,7 @@ class VersionControlSystem:
     def add_with_subdirs(self, dir_path):
         try:
             if self.utility.not_init('.'):
-                print("'.bhavu' folder is not initialized...")
-                print("Run 'bhavu init' command to initialize")
+                self.utility.printLine()
                 return
 
             if not self.file_function.check_dir(dir_path):
@@ -200,39 +199,37 @@ class VersionControlSystem:
         except Exception as e:
             print(f"An error occurred while removing the file: {str(e)}")
 
-    def rmadd_with_subdirs(self,dir_path):
-        if(self.utility.not_init('.')):
-            print("'.bhavu' folder is not initialized...")
-            print("Run 'bhavu init' command to initialize")
-            return
+    def rmadd_with_subdirs(self, dir_path):
+        try:
+            if self.utility.not_init('.'):
+                self.utility.printLine()
+                return
+
+            if not self.file_function.check_dir(dir_path):
+                bool = self.rmadd(dir_path, dir_path)
+                if bool == False:
+                    print("add the file first to stage it")
+                return
+
+            for root, dirs, files in os.walk(dir_path):
+                dirs[:] = [d for d in dirs if d not in ['.bhavu', '_pycache_', '.git']]
+                files[:] = [f for f in files if f not in ['vcs.py', '.gitignore']]
+                # print(files)
+
+                for file in files:
+                    file_path_full = os.path.normpath(os.path.join(root, file))
+                    file_path_relative = os.path.normpath(file_path_full)
+                    self.rmadd(file_path_full, file_path_relative)
+            print("File removed from stage successfully...")
+        except Exception as e:
+            print(f"An error occurred while removing the file from stage: {str(e)}")
         
-        if not self.file_function.check_dir(dir_path):
-            bool = self.rmadd(dir_path,dir_path)
-            if(bool == False):
-                print("add the file  first to stage it")
-            return 
-
-        for root,dirs,files in os.walk(dir_path):
-            dirs[:] = [d for d in dirs if d not in ['.bhavu','_pycache_','.git']]
-            files[:] = [f for f in files if f not in ['vcs.py','.gitignore']]
-            # print(files)
-
-            for file in files:
-                file_path_full = os.path.normpath(os.path.join(root,file))
-                file_path_relative = os.path.normpath(file_path_full)
-                self.rmadd(file_path_full,file_path_relative )
-        print("File removed from added")
-            
-
 
     def status(self):
-        if self.not_init('.'):
-            print("'.bhavu' folder is not initialized...")
-            print("Run 'bhavu init' command to initialize")
+        if self.utility.not_init('.'):
+            self.utility.printLine()
             return
-        untracked_files=set()
-        f1 = open(self.index_file,'r')
-        data = json.load(f1)
+        data = self.utility.read_json(self.index_file)
         
         for root, dirs, files in os.walk(os.getcwd()):
             dirs[:] = [d for d in dirs if d not in [
@@ -241,7 +238,7 @@ class VersionControlSystem:
             for file in files:
                 file_path = os.path.join(root, file)
                 
-                hash = hash_file(file_path)
+                hash = self.hash.hash_file(file_path)
                 rel_path = os.path.relpath(file_path, os.getcwd())
 
                 if rel_path in data.keys() and data[rel_path] == hash:
@@ -253,15 +250,9 @@ class VersionControlSystem:
 
        
 
-    def dump_data(self,commit_data):
-        json_data = json.dumps(commit_data)
-        return json_data
     
-    def get_object_hash(self,commit_data):
-        return hashlib.sha1(commit_data.encode('utf-8')).hexdigest()
     
-    def get_object_path(self,object_hash):
-        return os.path.join(self.commit_path,object_hash)
+    
     
     def encrypt_data(self,file_path):
 
@@ -275,46 +266,20 @@ class VersionControlSystem:
                 decrpted_data = base64.b64decode(data).decode('utf-8')
         return decrpted_data    
          
-    def save_object(self,commit_data):
-        object_hash = self.get_object_hash(commit_data)
-        object_path = self.get_object_path(object_hash)
+    
 
-        if not os.path.exists(object_path):
-            with open(object_path,'w') as obj:           
-                commit_data_encrypted = base64.b64encode(commit_data.encode()).decode('utf-8')
-                obj.write(commit_data_encrypted)
-        return object_hash
-
-    def get_unadded_files(self,added):
-        unadded_files=set()
-        for root, dirs, files in os.walk(os.getcwd()):
-            dirs[:] = [d for d in dirs if d not in [
-                '.bhavu', '_pycache_', '.git']]
-            files[:] = [f for f in files if f not in ['vcs.py', '.gitignore']]
-            for file in files:
-                file_path = os.path.join(root, file)
-                hash = hash_file(file_path)
-                rel_path = os.path.relpath(file_path, os.getcwd())
-                if rel_path not in added or added[rel_path]!=hash:
-                    unadded_files.add(rel_path)
-        return unadded_files
 
     def commit(self,message,author):
-        if self.not_init('.'):
-            print("'.bhavu' folder is not initialized...")
-            print("Run 'bhavu init' command to initialize")
+        if self.utility.not_init('.'):
+            self.utility.printLine()
             return
-
-        with open(self.index_file,'r') as index_data:
-                index = json.load(index_data)
-
-        with open(self.add_file,'r') as add_data:
-                added = json.load(add_data)
-        
-        unadded_files = self.get_unadded_files(added)
+        index = self.utility.read_json(self.index_file)
+        added = self.utility.read_json(self.add_file)
+                
+        unadded_files = self.file_function.get_unadded_files(added)
         
         if unadded_files:
-            print("Unadded files are present.\n")
+            print("unstaged files are present.\n")
             for file in unadded_files:
                 print("Untracked:",file)
             print()
@@ -322,17 +287,14 @@ class VersionControlSystem:
             if flag == "y":
                 self.add_with_subdirs('.')
 
-        with open(self.index_file,'r') as index_data:
-                index = json.load(index_data)
-
-        with open(self.add_file,'r') as add_data:
-                added = json.load(add_data)
+        index = self.utility.read_json(self.index_file)
+        added = self.utility.read_json(self.add_file)
         
         if not added :
             print("No changes to commit")
             return 
         
-        timestamp= (datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+        timestamp= self.utility.get_date_time()
 
         commit_data ={
             "timestamp":timestamp,
@@ -342,19 +304,17 @@ class VersionControlSystem:
             "added": added,        
         }
 
-        commit_file = self.dump_data(commit_data)
+        commit_file = self.utility.dump_data(commit_data)
         
-        commit_hash = self.save_object(commit_file)      
-
-        with open(self.add_file,'w') as f:
-            json.dump({}, f)
+        commit_hash = self.file_function.save_object(self.commit_path,commit_file)      
+        self.utility.dump_json({}, self.add_file)
         
         #Currently implementing it for the main branch
         current_branch = "main" 
         head_path = os.path.join(self.branch_path,current_branch)
         current_head = os.path.join(head_path,'HEAD')
-        with open(current_head,"a")as head:
-            head.write(commit_hash+"\n") 
+        
+        self.file_handler.append_file(current_head,"{}\n".format(commit_hash)) 
 
         for file_path,file_hash in added.items():
             encrpted_data = self.encrypt_data(file_path)
