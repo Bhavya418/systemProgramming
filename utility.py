@@ -43,6 +43,10 @@ class Utility:
         json_data = json.dumps(commit_data)
         return json_data
     
+    def read_data(self,commit_data):
+        data = json.loads(commit_data)
+        return data
+
     def get_object_hash(self,commit_data):
         return hashlib.sha1(commit_data.encode('utf-8')).hexdigest()
     
@@ -76,12 +80,39 @@ class Utility:
             return None
 
     def get_head_commit(self,current_branch = "main",branch_path=".bhavu/branches",):
-         
-        current_head = os.path.join(branch_path,current_branch,'HEAD')
-        head_commit = self.file_handler.read_file(current_head)
-        head_commit = head_commit.strip().split("\n")[-1]
-        return head_commit
+        try:
+            current_head = os.path.join(branch_path,current_branch,'HEAD')
+            head_commit = self.file_handler.read_file(current_head)
+            head_commit = head_commit.strip().split("\n")[-1]
+            return head_commit
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None
     
+    def get_second_head_commit(self,current_branch = "main" ,branch_path=".bhavu/branches"):
+        try:
+            current_head = os.path.join(branch_path,current_branch,'HEAD')
+            second_head_commit = self.file_handler.read_file(current_head)
+            second_head_commit = second_head_commit.strip().split("\n")
+
+            if len(second_head_commit) > 1:
+                second_head_commit = second_head_commit[-2]
+            else:
+                second_head_commit = ""
+            return second_head_commit
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None
+    
+    def remove_last_line(self,file_path):
+        try:
+            with open(file_path, "r") as file:
+                lines = file.readlines()
+            with open(file_path, "w") as file:
+                file.writelines(lines[:-1])
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None
 
     def printLine(self):
         print("'.bhavu' folder is not initialized...")

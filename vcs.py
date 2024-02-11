@@ -6,7 +6,6 @@ import json
 import datetime 
 import base64
 
-
 #importing the other files and classes 
 from hash import HashCalculator
 from file_handler import FileHandler
@@ -215,7 +214,6 @@ class VersionControlSystem:
             for root, dirs, files in os.walk(dir_path):
                 dirs[:] = [d for d in dirs if d not in ['.bhavu', '_pycache_', '.git']]
                 files[:] = [f for f in files if f not in ['vcs.py', '.gitignore']]
-                # print(files)
 
                 for file in files:
                     file_path_full = os.path.normpath(os.path.join(root, file))
@@ -311,310 +309,300 @@ class VersionControlSystem:
             print(f"Commit successfully with <HEAD> hash: {commit_hash}")
         except Exception as e:
             print(f"An error occurred while committing: {str(e)}")
+  
+    def checkout(self, commit_hash):
+        try:
+            if self.utility.not_init('.'):
+                self.utility.printLine()
+                return
 
-    
-        
+            current_branch = "main"
+            head_commit = self.utility.get_head_commit(current_branch, self.branch_path)
 
-    def get_second_head_commit(self):
-        current_branch = "main" 
-        head_path = os.path.join(self.branch_path,current_branch)
-        current_head = os.path.join(head_path,'HEAD')
-        with open(current_head,"r")as head:
-            second_head_commit = head.read()
-        
-        second_head_commit = second_head_commit.strip().split("\n")
-        if len(second_head_commit) > 1:
-            second_head_commit = second_head_commit[-2]
-        else:
-            second_head_commit = ""
-        return second_head_commit
-    
+            if head_commit == commit_hash:
+                print("already at the commit")
+                return
 
-    
-    def checkout(self,commit_hash):
-        
-        if self.file_function.not_init('.'):
-            self.utility.printLine()
-            return
+            head_file = os.path.join(self.branch_path, "main", 'HEAD')
 
-        current_branch = "main"
-        head_commit = self.get_head_commit(current_branch,self.branch_path)
-        
-        if head_commit == commit_hash:
-            print("already at the commit")
-            return    
-        
-        head_file = os.path.join(self.branch_path,"main",'HEAD')
-        
-        head_commit = self.file_handler.read_file(head_file)
-        head_commit = head_commit.strip().split("\n")
+            head_commit = self.file_handler.read_file(head_file)
+            head_commit = head_commit.strip().split("\n")
 
-        if commit_hash not in head_commit:
-            print("commit hash not found")
-            return
-        #try to make the commit_index as the head commit but will do it afterwards
-        # commit_index = head_commit.index(commit_hash)
+            if commit_hash not in head_commit:
+                print("commit hash not found")
+                return
+            # try to make the commit_index as the head commit but will do it afterwards
+            # commit_index = head_commit.index(commit_hash)
 
-        head_commit_file = os.path.join(self.commit_path,commit_hash)
-        
-        commited_files = self.utility.get_commited_files(head_commit_file,"index")
-        
-        self.file_function.clear_directory(os.getcwd())   
+            head_commit_file = os.path.join(self.commit_path, commit_hash)
 
-        for file_path,file_hash in commited_files.items(): 
-            file_path = os.path.join(os.getcwd(),file_path)
-            dir_name= os.path.dirname(file_path)
-            if not self.file_function.check_file_exists(dir_name):
-                os.makedirs(dir_name)
+            commited_files = self.utility.get_commited_files(head_commit_file, "index")
 
-        for file_path,file_hash in commited_files.items():
-            content_file = os.path.join(self.content_path,file_hash)
-            decrpyted_data = self.utility.decrypt_data_file_path(content_file)
-            self.file_handler.write_file(file_path,decrpyted_data)
+            self.file_function.clear_directory(os.getcwd())
 
-        self.utility.dump_json(commited_files, self.index_file)
+            for file_path, file_hash in commited_files.items():
+                file_path = os.path.join(os.getcwd(), file_path)
+                dir_name = os.path.dirname(file_path)
+                if not self.file_function.check_file_exists(dir_name):
+                    os.makedirs(dir_name)
 
-        print(f"checkedout successfully to {commit_hash}")
+            for file_path, file_hash in commited_files.items():
+                content_file = os.path.join(self.content_path, file_hash)
+                decrpyted_data = self.utility.decrypt_data_file_path(content_file)
+                self.file_handler.write_file(file_path, decrpyted_data)
+
+            self.utility.dump_json(commited_files, self.index_file)
+
+            print(f"checked out successfully to {commit_hash}")
+        except Exception as e:
+            print(f"An error occurred during checkout: {str(e)}")
+
 
     def rmcommit(self):
-        if self.not_init('.'):
-            print("'.bhavu' folder is not initialized...")
-            print("Run 'bhavu init' command to initialize")
-            return
-        #Currently implementing it for the main branch
 
-        head_commit = self.get_head_commit()
+        try:
+            if self.utility.not_init('.'):
+                self.utility.printLine()
+                return
+            current_branch = "main"    
+            #Currently implementing it for the main branch
+            head_commit = self.utility.get_head_commit(current_branch, self.branch_path)
 
-        if head_commit == "":
-            print("No commits to remove. Commit first to remove the last commit.")
-            return
+            if head_commit == "":
+                print("No commits to remove. Commit first to remove the last commit.")
+                return
 
-        second_head_commit = self.get_second_head_commit()
-        
-        self.clear_directory(os.getcwd())
-
-        if head_commit and second_head_commit =="":
-            head_path = os.path.join(self.branch_path,"main")
-            head_file = os.path.join(head_path,'HEAD')
-            head_commit_file = os.path.join(self.commit_path,head_commit)
-            commited_files = get_commited_files(head_commit_file,"added")
-
-            for file_path,file_hash in commited_files.items():
-                content_file = os.path.join(self.content_path,file_hash)
-                os.remove(content_file)
-
-            os.remove(head_commit_file)
-            with open(head_file, "w") as f:
-                f.write("")
-            with open(self.add_file,'w') as f:
-                json.dump({}, f)
-            with open(self.index_file,'w') as f:
-                json.dump({}, f)
-            print("Last commit removed successfully")
-            return
-            #if both head commit and second head commit are there
-        else:
+            second_head_commit = self.utility.get_second_head_commit(current_branch, self.branch_path)
             
-            head_path = os.path.join(self.branch_path,"main")
-            head_file = os.path.join(head_path,'HEAD')
-            #remove last line in head_file 
-
-            with open(head_file, "r") as f:
-                lines = f.readlines()
-                lines = lines[:-1]
-            with open(head_file, "w") as f:
-                f.writelines(lines)            
-
+            self.file_function.clear_directory(os.getcwd())
+            head_file = os.path.join(self.branch_path,"main",'HEAD')
             head_commit_file = os.path.join(self.commit_path,head_commit)
-            commited_files = self.get_commited_files(head_commit_file,"added")
 
-            for file_path,file_hash in commited_files.items():
-                content_file = os.path.join(self.content_path,file_hash)
-                os.remove(content_file)
-
-            os.remove(head_commit_file)
-            second_head_commit_file = os.path.join(self.commit_path,second_head_commit)
-
-            commited_files = self.get_commited_files(second_head_commit_file,"index")
-
-            for file_path,file_hash in commited_files.items():
-                file_path = os.path.join(os.getcwd(),file_path)
-                dir_name= os.path.dirname(file_path)
-                if not os.path.exists(dir_name):
-                    os.makedirs(dir_name)   
-
-
-
-            for file_path,file_hash in commited_files.items():
-                content_file = os.path.join(self.content_path,file_hash)
-                encrpted_data = self.decrypt_data(content_file)
-                with open(file_path,'w') as f:
-                    f.write(encrpted_data)
-            with open(self.index_file,'w') as f:
-                json.dump(commited_files, f)
-
-            print("Last commit removed successfully")
-            return
-
-    def push(self,destionation_path,folder_name):
-        if self.not_init('.'):
-            print("'.bhavu' folder is not initialized...")
-            print("Run 'bhavu init' command to initialize")
-            return
-        
-        if not os.path.exists(destionation_path):
-            os.makedirs(destionation_path)
-        # destionation_path = os.path.join(destionation_path,"pushed_files")
-        destionation_path = os.path.join(destionation_path,folder_name)
-        if not os.path.exists(destionation_path):
-            os.makedirs(destionation_path)
-
-        head_commit = self.get_head_commit()
-        if head_commit == "":
-            quit("No commits to push. Commit first to push the files.")
-            return
-        head_commit_file = os.path.join(self.commit_path,head_commit)
-        commited_files = self.get_commited_files(head_commit_file,'index')
-        for file_path,file_hash in commited_files.items():
-                content_file = os.path.join(self.content_path,file_hash)
-                encrpted_data = self.decrypt_data(content_file)
-                file_path_push = os.path.join(destionation_path,file_path)
-                dir_path = os.path.dirname(file_path_push)
-                if not os.path.exists(dir_path):
-                        os.makedirs(dir_path)
-
-                with open(os.path.join(destionation_path,file_path),'w') as f:
-                    
-                    f.write(encrpted_data)    
+            if head_commit and second_head_commit =="":
                 
-        print("Files pushed successfully")
+                commited_files = self.file_function.get_commited_files(head_commit_file,"added")
+
+                for file_path,file_hash in commited_files.items():
+                    content_file = os.path.join(self.content_path,file_hash)
+                    os.remove(content_file)
+
+                os.remove(head_commit_file)
+                self.file_handler.write_file(head_file, "")
+                self.utility.dump_json({}, self.add_file)
+                self.utility.dump_json({}, self.index_file)
+                print("Last commit removed successfully")
+                return
+
+                #if both head commit and second head commit are there
+            else:
+                #remove last line in head_file 
+                self.utility.remove_last_line(head_file)          
+                commited_files = self.file_function.get_commited_files(head_commit_file,"added")
+
+                for file_path,file_hash in commited_files.items():
+                    content_file = os.path.join(self.content_path,file_hash)
+                    os.remove(content_file)
+
+                os.remove(head_commit_file)
+
+                second_head_commit_file = os.path.join(self.commit_path,second_head_commit)
+                commited_files = self.get_commited_files(second_head_commit_file,"index")
+
+                for file_path,file_hash in commited_files.items():
+                    file_path = os.path.join(os.getcwd(),file_path)
+                    dir_name= os.path.dirname(file_path)
+                    if not self.file_function.check_file_exists(dir_name):
+                        os.makedirs(dir_name)   
+
+                for file_path,file_hash in commited_files.items():
+                    content_file = os.path.join(self.content_path,file_hash)
+                    decrypted_data = self.utility.decrypt_data_file_path(content_file)
+                    self.file_handler.write_file(file_path,decrypted_data)
+
+                self.utility.dump_json(commited_files,self.index_file)
+
+                print("Last commit removed successfully")
+                return
+        except Exception as e:
+            print(f"An error occurred during commit removal: {str(e)}")
+
+    def push(self, destionation_path, folder_name):
+        try:
+            if self.utility.not_init('.'):
+                self.utility.printLine()
+                return
+            
+            if not self.file_function.check_file_exists(destionation_path):
+                os.makedirs(destionation_path)
+
+            destionation_path = os.path.join(destionation_path, folder_name)
+            if not self.file_function.check_file_exists(destionation_path):
+                os.makedirs(destionation_path)
+
+            head_commit = self.utility.get_head_commit("main", self.branch_path)
+            if head_commit == "":
+                quit("No commits to push. Commit first to push the files.")
+                return
+
+            head_commit_file = os.path.join(self.commit_path, head_commit)
+            commited_files = self.utility.get_commited_files(head_commit_file, 'index')
+            for file_path, file_hash in commited_files.items():
+                content_file = os.path.join(self.content_path, file_hash)
+                encrypted_data = self.utility.decrypt_data_file_path(content_file)
+                file_path_push = os.path.join(destionation_path, file_path)
+                dir_path = os.path.dirname(file_path_push)
+                if not self.file_function.check_file_exists(dir_path):
+                    os.makedirs(dir_path)
+                self.file_handler.write_file(file_path_push, encrypted_data)
+
+            print("Files pushed successfully")
+        except Exception as e:
+            print(f"An error occurred while pushing files: {str(e)}")
     
 
     def log(self):
-        if self.not_init('.'):
-            print("'.bhavu' folder is not initialized...")
-            print("Run 'bhavu init' command to initialize")
-            return
+        try:
+            if self.utility.not_init('.'):
+                self.utility.printLine()
+                return
 
-        head_path = os.path.join(self.branch_path,"main")
-        head_path = os.path.join(head_path,'HEAD')
-        with open(head_path,"r") as head:
-            head_commit = head.read()
-        head_commit = head_commit.strip().split("\n")
+            head_path = os.path.join(self.branch_path, "main", 'HEAD')
+            head_commit = self.file_handler.read_file(head_path)
+            head_commit = head_commit.strip().split("\n")
 
-        if head_commit == "":
-            print("No commits to show")
-            return
+            if head_commit == "":
+                print("No commits to show")
+                return
 
-        for commit in head_commit:
-            commit_file = os.path.join(self.commit_path,commit)
-            data = self.decrypt_data(commit_file)
-            data = json.loads(data)
-            print(f"commit: {commit}")
-            print(f"Author: {data['author']}")
-            print(f"Date: {data['timestamp']}")
-            print(f"Message: {data['message']}")
-            print()
-            print("Added/Modifies files:")
-            print("----------------------")
-            for file in data['added']:
-                print(file,"\n")
-            print("All files:")
-            print("----------------------")
-            for file in data['index']:
-                print(file,"\n")
+            for commit in head_commit:
+                commit_file = os.path.join(self.commit_path, commit)
+                data = self.utility.decrypt_data_file_path(commit_file)
+                data = self.utility.read_data(data)
+                print(f"commit: {commit}")
+                print(f"Author: {data['author']}")
+                print(f"Date: {data['timestamp']}")
+                print(f"Message: {data['message']}")
+                print()
+                print("Added/Modifies files:")
+                print("----------------------")
+                for file in data['added']:
+                    print(file, "\n")
+                print("All files:")
+                print("----------------------")
+                for file in data['index']:
+                    print(file, "\n")
 
-        print("Log successfully shown")
+            print("Log successfully shown")
+        except Exception as e:
+            print(f"An error occurred while showing the log: {str(e)}")
 
 
 def main():
-    
-    if(len(sys.argv)<2):
+    if len(sys.argv) < 2:
         help()
         sys.exit(1)
 
     command = sys.argv[1]
 
-    if(command == 'init'):
-        if(len(sys.argv) !=2):
+    if command == 'init':
+        if len(sys.argv) != 2:
             print("Error: Too many arguments.")
             print("Usage: bhavu init")
             sys.exit(1)
 
         vcs.init()
-        
 
-    elif(command == 'add'):
-        
-        file = sys.argv[2]
-        
-        vcs.add_with_subdirs(file)
-        print("Files added successfully")
-        
-        
-
-    elif(command == 'rmadd'):
-        
-        file = sys.argv[2]
-        
-        vcs.rmadd_with_subdirs(file)
-        # print("File removed from added")
-        
-        
-
-    elif(command == 'status'):
-        vcs.status()    
-
-    elif(command == 'commit'):
-        if "-m" not in sys.argv:
-            print("Error: Please provide a commit message using  flag -m.")
+    elif command == 'add':
+        if len(sys.argv) != 3:  
+            print("Error: Too many arguments.")
+            print("Usage: bhavu add <file>")
             sys.exit(1)
-        message_index = sys.argv.index('-m')+1
+        file = sys.argv[2]
+        vcs.add_with_subdirs(file)
+        print("File/s added successfully")
+
+    elif command == 'rmadd':
+        if len(sys.argv) != 3:
+            print("Error: Too many arguments.")
+            print("Usage: bhavu rmadd <file>")
+            sys.exit(1)
+        file = sys.argv[2]
+        vcs.rmadd_with_subdirs(file)
+
+    elif command == 'status':
+        if len(sys.argv) != 2:
+            print("Error: Too many arguments.")
+            print("Usage: bhavu status")
+            sys.exit(1)
+        vcs.status()
+
+    elif command == 'commit':
+        if len(sys.argv) < 3:
+            print("Error: Too few arguments.")
+            print("Usage: bhavu commit -m <message>")
+            sys.exit(1)
+        if "-m" not in sys.argv:
+            print("Error: Please provide a commit message using the -m flag.")
+            sys.exit(1)
+        message_index = sys.argv.index('-m') + 1
         message = sys.argv[message_index]
         user = vcs.get_current_user()
-        vcs.commit(message,user)
+        vcs.commit(message, user)
 
-    elif(command == 'rmcommit'):
-        vcs.rmcommit()    
+    elif command == 'rmcommit':
+        if len(sys.argv) != 2:
+            print("Error: Too many arguments.")
+            print("Usage: bhavu rmcommit")
+            sys.exit(1) 
+        vcs.rmcommit()
 
-    elif(command == 'help'):
+    elif command == 'help':
+        if len(sys.argv)>3:
+            print("Error: Too many arguments.")
+            print("Usage: bhavu help")
+            sys.exit(1)
         help()
-    
-    elif(command == 'push'):
-        file = sys.argv[2]
-        foldername =sys.argv[3]
-        vcs.push(file,foldername)
 
-    elif(command == 'user'):
-        if(len(sys.argv)<3):
+    elif command == 'push':
+        if len(sys.argv) != 4:
+            print("Error: Please provide a path to push the files.")
+            print("Usage: bhavu push <path>")
+            sys.exit(1)
+        file = sys.argv[2]
+        foldername = sys.argv[3]
+        vcs.push(file, foldername)
+
+    elif command == 'user':
+        if len(sys.argv) < 3:
             print("Error: Please provide a command.")
             sys.exit(1)
         sub_command = sys.argv[2]
-        if(sub_command == 'show'):
-            print("Author:",vcs.get_current_user())
-        elif(sub_command == 'set'):
+        if sub_command == 'show':
+            print("Author:", vcs.get_current_user())
+        elif sub_command == 'set':
             user_name = sys.argv[3]
             vcs.change_user(user_name)
             print(f"Author changed to '{user_name}' successfully")
-        
         else:
             help()
-    
-    elif(command == 'checkout'):
+
+    elif command == 'checkout':
+        if len(sys.argv) != 3:
+            print("Error: Too many arguments.")
+            print("Usage: bhavu checkout <commit>")
+            sys.exit(1)
         commit_hash = sys.argv[2]
         vcs.checkout(commit_hash)
 
-    elif(command == 'log'):
+    elif command == 'log':
+        if len(sys.argv) != 2:
+            print("Error: Too many arguments.")
+            print("Usage: bhavu log")
+            sys.exit(1)
         vcs.log()
-    elif(command == 'test'):
-        
-        vcs.test_function()
-
 
     else:
         help()
-
-        
 
 if __name__ == "__main__": 
     vcs = VersionControlSystem()

@@ -63,7 +63,7 @@ class Filefunctions:
     def get_commited_files(self, commit_file, type):
         try:
             data = self.utility.decrypt_data_file_path(commit_file)
-            data = json.loads(data)
+            data = self.utility.read_data(data)
             added_files = data[type]
             return added_files
             
