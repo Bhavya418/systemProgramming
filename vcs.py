@@ -12,7 +12,7 @@ from hash import HashCalculator
 from file_handler import FileHandler
 from utility import Utility
 from help import help
-from file_functions import File_functions
+from file_functions import Filefunctions
 
 class VersionControlSystem:
 
@@ -30,7 +30,7 @@ class VersionControlSystem:
             #class objects
             self.hash = HashCalculator()
             self.file_handler = FileHandler()
-            self.file_function = File_functions()
+            self.file_function = Filefunctions()
             self.utility = Utility()
         except Exception as e:
             print(f"An error occurred while initializing the VersionControlSystem: {str(e)}")
@@ -51,7 +51,7 @@ class VersionControlSystem:
     # change the current user
     def change_user(self, user_name):
         try:
-            date_time = self.Utility.get_date_time()
+            date_time = self.utility.get_date_time()
             self.file_handler.write_file(self.user_file, f"{date_time} {user_name}")
         except Exception as e:
             print(f"An error occurred while changing the user: {str(e)}")
@@ -133,6 +133,7 @@ class VersionControlSystem:
         except Exception as e:
             print(f"An error occurred while adding the file to JSON: {str(e)}")
 
+    
     def add(self, file_path_full, file_path_relative):   
         try:
             if not self.file_function.check_file_exists(file_path_full):
@@ -226,126 +227,92 @@ class VersionControlSystem:
         
 
     def status(self):
-        if self.utility.not_init('.'):
-            self.utility.printLine()
-            return
-        data = self.utility.read_json(self.index_file)
-        
-        for root, dirs, files in os.walk(os.getcwd()):
-            dirs[:] = [d for d in dirs if d not in [
-                '.bhavu', '_pycache_', '.git']]
-            # print("dirs: ", dirs)
-            for file in files:
-                file_path = os.path.join(root, file)
-                
-                hash = self.hash.hash_file(file_path)
-                rel_path = os.path.relpath(file_path, os.getcwd())
+        try:
+            if self.utility.not_init('.'):
+                self.utility.printLine()
+                return
+            data = self.utility.read_json(self.index_file)
 
-                if rel_path in data.keys() and data[rel_path] == hash:
-                    status = 'Tracked'
-                else:
-                    status = 'Untracked'
+            for root, dirs, files in os.walk(os.getcwd()):
+                dirs[:] = [d for d in dirs if d not in [
+                    '.bhavu', '_pycache_', '.git']]
+                # print("dirs: ", dirs)
+                for file in files:
+                    file_path = os.path.join(root, file)
 
-                print(f"{status}: {rel_path}")
+                    hash = self.hash.hash_file(file_path)
+                    rel_path = os.path.relpath(file_path, os.getcwd())
 
-       
+                    if rel_path in data.keys() and data[rel_path] == hash:
+                        status = 'Tracked'
+                    else:
+                        status = 'Untracked'
 
-    
-    
-    
-    
-    def encrypt_data(self,file_path):
-
-        with open(file_path,'r') as f:
-                data = f.read()
-                encrpted_data = base64.b64encode(data.encode()).decode('utf-8')
-        return encrpted_data
-    def decrypt_data(self,file_path):
-        with open(file_path,'r') as f:
-                data = f.read()
-                decrpted_data = base64.b64decode(data).decode('utf-8')
-        return decrpted_data    
+                    print(f"{status}: {rel_path}")
+        except Exception as e:
+            print(f"An error occurred while checking the status: {str(e)}")
+          
          
+    def commit(self, message, author):
+        try:
+            if self.utility.not_init('.'):
+                self.utility.printLine()
+                return
+            index = self.utility.read_json(self.index_file)
+            added = self.utility.read_json(self.add_file)
+
+            unadded_files = self.file_function.get_unadded_files(added)
+
+            if unadded_files:
+                print("unstaged files are present.\n")
+                for file in unadded_files:
+                    print("Untracked:", file)
+                print()
+                flag = input("Do you want to add the changes? (y/n): ")
+                if flag == "y":
+                    self.add_with_subdirs('.')
+
+            index = self.utility.read_json(self.index_file)
+            added = self.utility.read_json(self.add_file)
+
+            if not added:
+                print("No changes to commit")
+                return
+
+            timestamp = self.utility.get_date_time()
+
+            commit_data = {
+                "timestamp": timestamp,
+                "message": message,
+                "author": author,
+                "index": index,
+                "added": added,
+            }
+
+            commit_file = self.utility.dump_data(commit_data)
+
+            commit_hash = self.file_function.save_object(self.commit_path, commit_file)
+            self.utility.dump_json({}, self.add_file)
+
+            # Currently implementing it for the main branch
+            current_branch = "main"
+            head_path = os.path.join(self.branch_path, current_branch)
+            current_head = os.path.join(head_path, 'HEAD')
+
+            self.file_handler.append_file(current_head, "{}\n".format(commit_hash))
+
+            for file_path, file_hash in added.items():
+                encrpted_data = self.utility.encrypt_data(file_path)
+                content_file = os.path.join(self.content_path, file_hash)
+                if not os.path.exists(content_file):
+                    with open(content_file, 'w') as f:
+                        f.write(encrpted_data)
+
+            print(f"Commit successfully with <HEAD> hash: {commit_hash}")
+        except Exception as e:
+            print(f"An error occurred while committing: {str(e)}")
+
     
-
-
-    def commit(self,message,author):
-        if self.utility.not_init('.'):
-            self.utility.printLine()
-            return
-        index = self.utility.read_json(self.index_file)
-        added = self.utility.read_json(self.add_file)
-                
-        unadded_files = self.file_function.get_unadded_files(added)
-        
-        if unadded_files:
-            print("unstaged files are present.\n")
-            for file in unadded_files:
-                print("Untracked:",file)
-            print()
-            flag = input("Do you want to add the changes? (y/n): ")
-            if flag == "y":
-                self.add_with_subdirs('.')
-
-        index = self.utility.read_json(self.index_file)
-        added = self.utility.read_json(self.add_file)
-        
-        if not added :
-            print("No changes to commit")
-            return 
-        
-        timestamp= self.utility.get_date_time()
-
-        commit_data ={
-            "timestamp":timestamp,
-            "message": message,
-            "author": author,
-            "index": index,
-            "added": added,        
-        }
-
-        commit_file = self.utility.dump_data(commit_data)
-        
-        commit_hash = self.file_function.save_object(self.commit_path,commit_file)      
-        self.utility.dump_json({}, self.add_file)
-        
-        #Currently implementing it for the main branch
-        current_branch = "main" 
-        head_path = os.path.join(self.branch_path,current_branch)
-        current_head = os.path.join(head_path,'HEAD')
-        
-        self.file_handler.append_file(current_head,"{}\n".format(commit_hash)) 
-
-        for file_path,file_hash in added.items():
-            encrpted_data = self.encrypt_data(file_path)
-            content_file = os.path.join(self.content_path,file_hash)
-            if not os.path.exists(content_file):
-                with open(content_file,'w') as f:
-                    f.write(encrpted_data )           
-
-        print(f"Commit successfully with <HEAD> hash : {commit_hash}")
-
-    def clear_directory(self,dir_path):
-        for root, dirs, files in os.walk(dir_path):
-            dirs[:] = [d for d in dirs if d not in [
-                '.bhavu', '_pycache_', '.git']]
-            files[:] = [f for f in files if f not in ['vcs.py', '.gitignore']]
-            for file in files:
-                file_path = os.path.join(root, file)
-                os.remove(file_path)
-            for dir in dirs:
-                dir_path = os.path.join(root,dir)
-                shutil.rmtree(dir_path)
-
-    def get_head_commit(self):
-        current_branch = "main" 
-        head_path = os.path.join(self.branch_path,current_branch)
-        current_head = os.path.join(head_path,'HEAD')
-        with open(current_head,"r")as head:
-            head_commit = head.read()
-        
-        head_commit = head_commit.strip().split("\n")[-1]
-        return head_commit
         
 
     def get_second_head_commit(self):
@@ -362,59 +329,52 @@ class VersionControlSystem:
             second_head_commit = ""
         return second_head_commit
     
-    def get_commited_files(self,commit_file,type):
-        data = self.decrypt_data(commit_file)
-        data = json.loads(data)
-        added_files = data[type]
-        return added_files
 
-    def test_function(self,destionation_path,folder_name):
-        print("Test function")
     
     def checkout(self,commit_hash):
-        # print(commit_hash)
-        if self.not_init('.'):
-            print("'.bhavu' folder is not initialized...")
-            print("Run 'bhavu init' command to initialize")
+        
+        if self.file_function.not_init('.'):
+            self.utility.printLine()
             return
 
-        head_commit = self.get_head_commit()
+        current_branch = "main"
+        head_commit = self.get_head_commit(current_branch,self.branch_path)
         
         if head_commit == commit_hash:
-            print("Already at the commit")
+            print("already at the commit")
             return    
         
-        HEAD_path = os.path.join(self.branch_path,"main")
-        head_file = os.path.join(HEAD_path,'HEAD')
-        with open(head_file,'r') as f:
-            head_commit = f.read()
-
+        head_file = os.path.join(self.branch_path,"main",'HEAD')
+        
+        head_commit = self.file_handler.read_file(head_file)
         head_commit = head_commit.strip().split("\n")
+
         if commit_hash not in head_commit:
-            print("Commit hash not found")
+            print("commit hash not found")
             return
         #try to make the commit_index as the head commit but will do it afterwards
         # commit_index = head_commit.index(commit_hash)
 
         head_commit_file = os.path.join(self.commit_path,commit_hash)
         
-        commited_files = self.get_commited_files(head_commit_file,"index")
+        commited_files = self.utility.get_commited_files(head_commit_file,"index")
         
-        self.clear_directory(os.getcwd())   
+        self.file_function.clear_directory(os.getcwd())   
 
         for file_path,file_hash in commited_files.items(): 
             file_path = os.path.join(os.getcwd(),file_path)
             dir_name= os.path.dirname(file_path)
-            if not os.path.exists(dir_name):
+            if not self.file_function.check_file_exists(dir_name):
                 os.makedirs(dir_name)
+
         for file_path,file_hash in commited_files.items():
             content_file = os.path.join(self.content_path,file_hash)
-            decrpyted_data = self.decrypt_data(content_file)
-            with open(file_path,'w') as f:
-                f.write(decrpyted_data)
-        with open(self.index_file,'w') as f:
-            json.dump(commited_files, f)
-        print("Checkout successfully")
+            decrpyted_data = self.utility.decrypt_data_file_path(content_file)
+            self.file_handler.write_file(file_path,decrpyted_data)
+
+        self.utility.dump_json(commited_files, self.index_file)
+
+        print(f"checkedout successfully to {commit_hash}")
 
     def rmcommit(self):
         if self.not_init('.'):

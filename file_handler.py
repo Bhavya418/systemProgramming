@@ -7,6 +7,7 @@ import datetime
 import base64
 
 class FileHandler:
+
     def read_file(self, filename):
         try:
             with open(filename, 'r') as file:

@@ -5,8 +5,12 @@ import hashlib
 import json 
 import datetime 
 import base64
+from file_handler import FileHandler
 
 class Utility:
+    def __init__(self):
+        self.file_handler = FileHandler()
+
     def not_init(self, dir_path):
         try:
             files_and_dirs = os.listdir(dir_path)
@@ -48,6 +52,37 @@ class Utility:
     def encrypt_data(self,commit_data):
         return base64.b64encode(commit_data.encode()).decode('utf-8')
     
+    def decrypt_data(self,commit_data):
+        return base64.b64decode(commit_data).decode('utf-8')
+    
+    def encrypt_data_file_path(self,file_path):
+        try:
+            data = self.file_handler.read_file(file_path)
+            encrpted_data = self.encrypt_data(data)
+               
+            return encrpted_data
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None
+    
+    
+    def decrypt_data_file_path(self,file_path):
+        try:
+            data = self.file_handler.read_file(file_path)
+            decrypted_data = self.decrypt_data(data)
+            return decrypted_data
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None
+
+    def get_head_commit(self,current_branch = "main",branch_path=".bhavu/branches",):
+         
+        current_head = os.path.join(branch_path,current_branch,'HEAD')
+        head_commit = self.file_handler.read_file(current_head)
+        head_commit = head_commit.strip().split("\n")[-1]
+        return head_commit
+    
+
     def printLine(self):
         print("'.bhavu' folder is not initialized...")
         print("Run 'bhavu init' command to initialize")

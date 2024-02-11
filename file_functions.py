@@ -5,13 +5,15 @@ import hashlib
 import json 
 import datetime 
 import base64
-from utility import Utility
 from hash import HashCalculator
+from file_handler import FileHandler
+from utility import Utility
 
-class File_functions:
+class Filefunctions:
     def __init__(self):
-        self.utility = Utility()
         self.hash = HashCalculator()
+        self.file_handler = FileHandler()
+        self.utility = Utility()
         
     def check_file_exists(self, filename):
         try:
@@ -37,6 +39,8 @@ class File_functions:
         for key in delKeys:
             del data[key]
         self.utility.dump_json(data, file_path)
+
+    
     
     def get_unadded_files(self,added):
         unadded_files=set()
@@ -54,7 +58,20 @@ class File_functions:
         except Exception as e:
             print(f"An error occurred: {e}")
         return unadded_files
-    
+
+
+    def get_commited_files(self, commit_file, type):
+        try:
+            data = self.utility.decrypt_data_file_path(commit_file)
+            data = json.loads(data)
+            added_files = data[type]
+            return added_files
+            
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None
+
+
     def save_object(self, commit_path, commit_data):
         try:
             object_hash = self.utility.get_object_hash(commit_data)
@@ -62,8 +79,38 @@ class File_functions:
 
             if not self.check_file_exists(object_path):
                 commit_data = self.utility.encrypt_data(commit_data)
-                self.utility.write_file(object_path, commit_data)
+                self.file_handler.write_file(object_path, commit_data)
             return object_hash
         except Exception as e:
             print(f"An error occurred: {e}")
             return None
+
+    def clear_directory(self,dir_path):
+        try:
+            for root, dirs, files in os.walk(dir_path):
+                dirs[:] = [d for d in dirs if d not in [
+                    '.bhavu', '_pycache_', '.git']]
+                files[:] = [f for f in files if f not in ['vcs.py', '.gitignore']]
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    os.remove(file_path)
+                for dir in dirs:
+                    dir_path = os.path.join(root,dir)
+                    shutil.rmtree(dir_path)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+    
+    def clear_directory(self,dir_path):
+        for root, dirs, files in os.walk(dir_path):
+            dirs[:] = [d for d in dirs if d not in [
+                '.bhavu', '_pycache_', '.git']]
+            files[:] = [f for f in files if f not in ['vcs.py', '.gitignore']]
+            for file in files:
+                file_path = os.path.join(root, file)
+                os.remove(file_path)
+            for dir in dirs:
+                dir_path = os.path.join(root,dir)
+                shutil.rmtree(dir_path)
+
+
+    
